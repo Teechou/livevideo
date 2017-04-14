@@ -1,0 +1,202 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+	<title>krpano / HTML5 Video WebGL CORS (Cross-Domain) Test</title>
+	<style>
+		body { font-family:Arial; font-size:10pt; }
+		h2 { margin-bottom:4pt; padding-bottom:0pt; }
+		ul { margin-top:0pt; margin-bottom:4pt; padding-left:20pt; }
+		ul li { padding:1pt 0; }
+	</style>
+</head>
+<body>
+
+	<h2>HTML5 Video WebGL CORS (Cross-Domain) Test</h2>
+	<ul>
+		<li>This is a very simple test-case / example for using a HTML5 video as WebGL texture.</li>
+		<li>This example plays a small video via WebGL - just touch onces on an iPad and then there should 
+			be a video playing in the black box below.
+		</li>
+		<li>The video file will be loaded from an other domain (crossOrigin is set to "anonymous" and the server is sending the correct headers).</li>
+		<li style="color:red;">This fails in iOS 8.0 and in the OSX 10.10 Safari!</li>
+		<li>All other Desktop and Android browsers are working fine!</li>
+		<li>See here the same example without cross domain access - <a href="../ios8-webgl-video/">HTML5 Video WebGL Test</a>.</li>
+		<li>Webkit Bugreports:
+			<ul>
+				<li><a href="https://bugs.webkit.org/show_bug.cgi?id=135379">https://bugs.webkit.org/show_bug.cgi?id=135379</a></li>
+				<li><a href="https://bugs.webkit.org/show_bug.cgi?id=133511">https://bugs.webkit.org/show_bug.cgi?id=133511</a></li>
+			</ul>
+		</li>
+		<li>Other HTML5 Video WebGL Problems:
+			<ul>
+				<li><a href="../ios8-webgl-video-performance/">HTML5 Video WebGL Performance Test</a></li>
+			</ul>
+		</li>
+	</ul>
+
+	<div style="position:relative;width:900px;height:480px;">
+		<canvas id="canvas" width="500" height="375" style="position:absolute;left:0;top:0;border:1px solid #CCCCCC;"></canvas>
+		<pre id="log" style="position:absolute;left:510px;top:0;width:400px;height:375px;margin:0;border:1px solid #CCCCCC;overflow:auto;">Log:</pre>
+	</div>
+
+
+	<script>
+
+		function log(msg,style)
+		{
+			document.getElementById("log").innerHTML += "<br><span style='"+(style?style:"")+"'>"+msg+"</span>";
+		}
+
+		var canvas = document.getElementById("canvas");
+		var gl_contextAttributes = { antialias:false };		// iOS10 bug!
+		var gl = null;
+		for (var i=0; i<4; i++)
+		{
+			gl = canvas.getContext(["webgl","experimental-webgl","moz-webgl","webkit-3d"][i], gl_contextAttributes)
+			if (gl)
+				break;
+		}
+		
+		if (!gl)
+			log("No WebGL support!", "color:red;");
+
+		// prepare WebGL
+		var vs = gl.createShader(gl.VERTEX_SHADER);
+		gl.shaderSource(vs, "attribute vec2 vx;varying vec2 tx;void main(){gl_Position=vec4(vx.x*2.0-1.0,1.0-vx.y*2.0,0,1);tx=vx;}");
+		gl.compileShader(vs);
+
+		var ps = gl.createShader(gl.FRAGMENT_SHADER);
+		gl.shaderSource(ps, "precision mediump float;uniform sampler2D sm;varying vec2 tx;void main(){gl_FragColor=texture2D(sm,tx);}");
+		gl.compileShader(ps);
+
+		var shader  = gl.createProgram();
+		gl.attachShader(shader, vs);
+		gl.attachShader(shader, ps);
+		gl.linkProgram(shader);
+		gl.useProgram(shader);
+
+		var vx_ptr = gl.getAttribLocation(shader, "vx");
+		gl.enableVertexAttribArray(vx_ptr);
+		gl.uniform1i(gl.getUniformLocation(shader, "sm"), 0);
+
+		var vx = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, vx);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0,0, 1,0, 1,1, 0,1]), gl.STATIC_DRAW);
+
+		var ix = gl.createBuffer();
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ix);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0,1,2, 0,2,3]), gl.STATIC_DRAW);
+
+		var tex = gl.createTexture();
+		gl.bindTexture(gl.TEXTURE_2D, tex);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T,     gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S,     gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+		// load the video
+		var video = document.createElement("video");
+		var videoready = false;
+		video.autoplay = true;
+		video.loop = true;
+		video.oncanplay = function(){ videoready=true; }
+		
+		video.onerror = function()
+		{
+			var err = "unknown error";
+			
+			switch(video.error.code)
+			{
+				case 1: err = "video loading aborted"; break;
+				case 2: err = "network loading error"; break;
+				case 3: err = "video decoding failed / corrupted data or unsupported codec"; break;
+				case 4: err = "video not supported"; break;
+			}; 
+			
+			log("Error: " + err + " (errorcode="+video.error.code+")", "color:red;");
+		};
+		
+		video.crossOrigin = "anonymous";
+		
+		var video_path     = "http://sonicam.co/sample/video/";
+		var video_filename = "960p.mp4";
+		
+		// if ( !video.canPlayType("video/mp4").match(/maybe|probably/i) && video.canPlayType("video/webm").match(/maybe|probably/i) )
+		// {
+		// 	// try webm if mp4 isn't supported
+		// 	video_filename = "cat-test-video-320x240.webm";
+		// }
+		
+		video.src = video_path + video_filename;
+		
+		// try to disable the iPhone video fullscreen mode:
+		video.setAttribute("playsinline", "");
+		video.setAttribute("webkit-playsinline", "");
+
+		// try to start playing
+		video.play();
+
+		// iOS - start video via touch
+		var needtouch = false;
+		function iOS_video_touch_start()
+		{
+			log("got the touch, try playing");
+			window.removeEventListener("touchstart", iOS_video_touch_start, true);
+			video.play();
+			needtouch = false;
+		}
+
+		var errcnt=0;
+
+		// requestAnimationFrame loop
+		function frameloop()
+		{
+			if (video && video.paused)
+			{
+				if (needtouch == false)
+				{
+					needtouch = true;
+					log("Note - need a touch to start the video!", "color:green;");
+					window.addEventListener("touchstart", iOS_video_touch_start, true);
+				}
+			}
+
+			gl.clear(gl.COLOR_BUFFER_BIT);
+
+			gl.activeTexture(gl.TEXTURE0);
+			gl.bindTexture(gl.TEXTURE_2D, tex);
+
+			if (videoready)
+			{
+				try
+				{
+					// upload the video frame
+					gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, video);
+				}
+				catch(e)
+				{
+					// log only the first few errors
+					errcnt++;
+					if (errcnt < 10)
+						log(e, "color:red;");
+					else if (errcnt == 10)
+						log("...", "color:red;");
+				}
+			}
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, vx);
+			gl.vertexAttribPointer(vx_ptr, 2, gl.FLOAT, false, 0, 0);
+
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ix);
+			gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+
+			window.requestAnimationFrame(frameloop);
+		}
+
+		frameloop();
+
+	</script>
+
+</body>
+</html>

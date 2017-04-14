@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>Document</title>
+	<script type="text/javascript" src="http://code.jquery.com/jquery-3.2.1.min.js"></script>
+</head>
+<body>
+	<video id="video" width="640" height="320"></video>
+	<script type="text/javascript">
+		var video=document.getElementById('video');
+
+  		$.ajax({   
+	        async:true,   
+	        url: 'http://sonicam.co/360video/source/source.txt',  // 跨域URL  
+	        type: 'GET',   
+	        dataType: 'json',   
+	        // jsonp: 'jsoncallback', //默认callback  
+	        //jsonpCallback: "success_jsonpCallback",
+	        timeout: 5000,   
+	        success: function (json) { 
+	        	video.src=json.url;
+	        	video.play();
+	        }
+	    })
+	</script>
+</body>
+</html>

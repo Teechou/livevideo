@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<!-- <meta http-equiv="Content-Security-Policy" content=" media-src: *"> -->
+	<title>360video</title>
+	<script type="text/javascript" src="http://code.jquery.com/jquery-3.2.1.min.js"></script>
+	<script type="text/javascript" src="js/three.js"></script>
+	<script type="text/javascript" src="js/video.js"></script>
+	<script type="text/javascript" src="js/hls.js"></script>
+	<script type="text/javascript" src="js/ambisonics.min.js"></script>
+	<!-- <script src="https://cdn.jsdelivr.net/hls.js/latest/hls.min.js"></script> -->
+	<script src="http://192.168.1.49:8081/target/target-script-min.js#anonymous"></script>
+	<style t'pe="text/css">
+		body{margin: 0;padding: 0;height: 100%;overflow: hidden;}
+	</style>
+</head>
+<body>
+
+</body>
+<script type="text/javascript">
+	var browser=window.navigator.userAgent.toLowerCase();
+	var panorama, viewer;
+	var texture_placeholder,
+	isUserInteracting = false,
+	onMouseDownMouseX = 0, onMouseDownMouseY = 0,
+	lon = 0, onMouseDownLon = 0,
+	lat = 0, onMouseDownLat = 0,
+	phi = 0, theta = 0,
+	distance = 300,
+	onPointerDownPointerX = 0,
+	onPointerDownPointerY = 0,
+	onPointerDownLon = 0,
+	onPointerDownLat = 0;
+	      //source/1234.mp4  http://www.streambox.fr/playlists/test_001/stream.m3u8 m3u8/index.m3u8 http://sonicam.co/sample/video/960p.mp4  m3u8/index.m3u8
+	      if(browser.indexOf('mobile')>0){      		
+	      		// var videourl = 'http://sonicam.co/360video/source/source.txt';
+	      		// function callOtherDomain(url) {
+	      		//    var invocation = new XMLHttpRequest();	
+	      		//    if(invocation) {    
+		      	// 	    invocation.open('GET', url, true);
+		      	// 	    //invocation.onreadystatechange = handler;
+		      	// 	    invocation.onload=function(){
+		      	// 	    	var loadurl=JSON.parse(invocation.response);
+		      	// 	    	alert(loadurl.url);
+	  		    // 			panorama = new PANOLENS.VideoPanorama( loadurl.url, { autoplay: false,crossorigin:"anonymous" } );
+	  		    // 	      	viewer = new PANOLENS.Viewer();
+	  		    // 	      	viewer.add( panorama );
+		      	// 	    }
+	      		//     	invocation.send(); 
+	      		//   }
+	      		// }
+	      		// callOtherDomain(videourl);
+				// http://192.168.1.49:8090/m3u8/index.m3u8
+	      		panorama = new PANOLENS.VideoPanorama( "source/1234.mp4", { autoplay: false,crossorigin:"anonymous" } );
+	        	viewer = new PANOLENS.Viewer();
+	        	viewer.add( panorama );	
+
+	        	function handleOrientation(event) {
+		        	var x = event.beta;  // In degree in the range [-180,180]
+		        	var y = event.gamma; // In degree in the range [-90,90]
+		        	var z = event.alpha; // In degree in the range [0,360]
+		        	//console.log(x+','+y);
+		        	mouseActionLocal([x,z]);
+		        }
+		        window.addEventListener('deviceorientation', handleOrientation);
+
+	      }else{
+	      
+	      	var geometry = new THREE.SphereBufferGeometry( 500, 60, 40 );
+				geometry.scale( - 1, 1, 1 );
+			video = document.createElement( 'video' );
+			video.crossOrigin="anonymous";
+
+			audio = document.createElement( 'audio' );
+			audio.crossOrigin="anonymous";
+			
+			if(Hls.isSupported()) {
+			   var hls = new Hls();
+			   var hlsaudio=new Hls(); 
+			   hls.loadSource('http://cache.utovr.com/201508270528174780.m3u8');
+			   hls.attachMedia (video);
+			   
+			   hls.on(Hls.Events.MANIFEST_PARSED,function() {
+			      video.play();
+			   });			  
+			}		
+			var texture = new THREE.VideoTexture( video );
+			texture.minFilter = THREE.LinearFilter;
+			texture.format = THREE.RGBFormat;
+	 
+			var material   = new THREE.MeshBasicMaterial( { map : texture } );
+
+			mesh = new THREE.Mesh( geometry, material );    	
+			
+			viewer = new PANOLENS.Viewer();		
+			viewer.add( mesh ); 
+
+			document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+			document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+			document.addEventListener( 'mouseup', onDocumentMouseUp, false );
+			
+			function onDocumentMouseDown( event ) {
+
+				event.preventDefault();
+
+				isUserInteracting = true;
+
+				onPointerDownPointerX = event.clientX;
+				onPointerDownPointerY = event.clientY;
+
+				onPointerDownLon = lon;
+				onPointerDownLat = lat;
+			}
+			function onDocumentMouseMove( event ) {
+
+				if ( isUserInteracting === true ) {
+
+					lon = ( onPointerDownPointerX - event.clientX ) * 0.1 + onPointerDownLon;
+					lat = ( event.clientY - onPointerDownPointerY ) * 0.1 + onPointerDownLat;
+
+					mouseActionLocal([lon,lat]);
+				}
+			}
+			function onDocumentMouseUp( event ) {
+
+				isUserInteracting = false;
+
+			}
+
+
+
+	      }
+	      
+</script>
+<script type="text/javascript" src="js/sound.js"></script>
+</html>
